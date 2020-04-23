@@ -11,7 +11,7 @@
   *  |        |  *tlast     |
   *  |        |  *tuser     |
   *  |        |  tvalid     |
-  *  |        |  *tready    |
+  *  |        |  +tready    |
   *  |        |  *tdest     |
   *  |        |  *tkeep     |
   *  |        |             |
@@ -20,6 +20,7 @@
   *  |        |             |
   *  |________|_____________|
   *   * Optional signal
+  *   + Declared as optional by spec, but not supported.
   */
 
 package spinal.lib.bus.amba4.axistream
@@ -128,3 +129,4 @@ object Axi4StreamT {
     def drive(sink: Stream[Axi4StreamT]): Unit = Axi4StreamPriv.driveT(stream,sink)
   }
 }
+
