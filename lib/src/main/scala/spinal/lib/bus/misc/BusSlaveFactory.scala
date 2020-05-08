@@ -78,20 +78,24 @@ trait BusSlaveFactory extends Area{
   def readPrimitive[T <: Data](that          : T,
                                address       : AddressMapping,
                                bitOffset     : Int,
-                               documentation : String): Unit
+                               documentation : String,
+                               name          : String): Unit
 
   def writePrimitive[T <: Data](that          : T,
                                 address       : AddressMapping,
                                 bitOffset     : Int,
-                                documentation : String): Unit
+                                documentation : String,
+                                name          : String): Unit
 
   def onWritePrimitive(address       : AddressMapping,
                        haltSensitive : Boolean,
-                       documentation : String)(doThat: => Unit): Unit
+                       documentation : String,
+                       name          : String)(doThat: => Unit): Unit
 
   def onReadPrimitive(address       : AddressMapping,
                       haltSensitive : Boolean,
-                      documentation : String)(doThat: => Unit): Unit
+                      documentation : String,
+                      name          : String)(doThat: => Unit): Unit
 
   def readHalt(): Unit
   def writeHalt(): Unit
@@ -104,7 +108,8 @@ trait BusSlaveFactory extends Area{
     */
   def nonStopWrite[T <: Data](that          : T,
                               bitOffset     : Int = 0,
-                              documentation : String = null): T
+                              documentation : String = null,
+                              name          : String = null): T
 
 
   /**
@@ -113,12 +118,14 @@ trait BusSlaveFactory extends Area{
   def read[T <: Data](that          : T,
                       address       : BigInt,
                       bitOffset     : Int = 0,
-                      documentation : String = null): T = {
+                      documentation : String = null,
+                      name          : String = null): T = {
     readPrimitive(
       that          = that,
       address       = SingleMapping(address),
       bitOffset     = bitOffset,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     )
     that
   }
@@ -129,12 +136,14 @@ trait BusSlaveFactory extends Area{
   def write[T <: Data](that          : T,
                        address       : BigInt,
                        bitOffset     : Int = 0,
-                       documentation : String = null): T = {
+                       documentation : String = null,
+                       name          : String = null): T = {
     writePrimitive(
       that          = that,
       address       = SingleMapping(address),
       bitOffset     = bitOffset,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     )
     that
   }
@@ -143,11 +152,14 @@ trait BusSlaveFactory extends Area{
   /**
     * Call doThat when a write transaction occurs on address
     */
-  def onWrite(address: BigInt, documentation: String = null)(doThat: => Unit): Unit = {
+  def onWrite(address       : BigInt,
+              documentation : String = null,
+              name          : String = null)(doThat: => Unit): Unit = {
     onWritePrimitive(
       address       = SingleMapping(address),
       haltSensitive = true,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     )(doThat)
   }
 
@@ -155,11 +167,14 @@ trait BusSlaveFactory extends Area{
   /**
     * Call doThat when a read transaction occurs on address
     */
-  def onRead(address: BigInt, documentation: String = null)(doThat: => Unit): Unit = {
+  def onRead(address: BigInt,
+             documentation: String = null,
+             name         : String = null)(doThat: => Unit): Unit = {
     onReadPrimitive(
       address       = SingleMapping(address),
       haltSensitive = true,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     )(doThat)
   }
 
@@ -180,9 +195,10 @@ trait BusSlaveFactory extends Area{
   def readAndWrite(that          : Data,
                    address       : BigInt,
                    bitOffset     : Int = 0,
-                   documentation : String = null): Unit = {
-    write(that, address, bitOffset, documentation)
-    read(that, address, bitOffset, documentation)
+                   documentation : String = null,
+                   name          : String = null): Unit = {
+    write(that, address, bitOffset, documentation, name)
+    read(that, address, bitOffset, documentation, name)
   }
 
   /** Return true if the bus is writing */
@@ -203,17 +219,20 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to read that from address
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def readMultiWord(that: Data, address: BigInt, documentation: String = null): Unit  = {
+  def readMultiWord(that          : Data,
+                    address       : BigInt,
+                    documentation : String = null,
+                    name          : String = null): Unit  = {
 
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
     var pos = if(isLittleWordEndianness) 0 else widthOf(that) - (if (widthOf(that) % busDataWidth  == 0)  busDataWidth else widthOf(that) % busDataWidth  )
     for (wordId <- 0 until wordCount) {
       if (isLittleWordEndianness){
-        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation)
+        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation, name)
         pos += busDataWidth
       }else{
-        read(valueBits(pos, Math.min(widthOf(that) - ((wordCount-1) - wordId) * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation)
+        read(valueBits(pos, Math.min(widthOf(that) - ((wordCount-1) - wordId) * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation, name)
         pos -= Math.min(pos, busDataWidth)
       }
     }
@@ -223,7 +242,10 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to write that at address.
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def writeMultiWord(that: Data, address: BigInt, documentation: String = null): Unit  = {
+  def writeMultiWord(that          : Data,
+                     address       : BigInt,
+                     documentation : String = null,
+                     name          : String = null): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- 0 until wordCount) {
       write(
@@ -241,16 +263,19 @@ trait BusSlaveFactory extends Area{
               bitCount = getBitsWidth bits)
           }
         },
-        address = address + wordId * wordAddressInc, 0, documentation)
+        address = address + wordId * wordAddressInc, 0, documentation, name)
     }
   }
 
   /**
     * Create the memory mapping to write/read that from address
     */
-  def readAndWriteMultiWord(that: Data, address: BigInt, documentation: String = null): Unit = {
-    writeMultiWord(that, address, documentation)
-    readMultiWord(that, address, documentation)
+  def readAndWriteMultiWord(that          : Data,
+                            address       : BigInt,
+                            documentation : String = null,
+                            name          : String = null): Unit = {
+    writeMultiWord(that, address, documentation, name)
+    readMultiWord(that, address, documentation, name)
   }
 
 
@@ -260,9 +285,10 @@ trait BusSlaveFactory extends Area{
   def createWriteOnly[T <: Data](dataType      : T,
                                  address       : BigInt,
                                  bitOffset     : Int = 0,
-                                 documentation : String = null): T = {
+                                 documentation : String = null,
+                                 name          : String = null): T = {
     val ret = Reg(dataType)
-    write(ret, address, bitOffset, documentation)
+    write(ret, address, bitOffset, documentation, name)
     ret
   }
 
@@ -273,9 +299,10 @@ trait BusSlaveFactory extends Area{
   def createReadOnly[T <: Data](dataType      : T,
                                 address       : BigInt,
                                 bitOffset     : Int = 0,
-                                documentation : String = null): T = {
+                                documentation : String = null,
+                                name          : String = null): T = {
     val ret = Reg(dataType)
-    read(ret, address, bitOffset)
+    read(ret, address, bitOffset, documentation, name)
     ret
   }
 
@@ -285,10 +312,11 @@ trait BusSlaveFactory extends Area{
   def createReadAndWrite[T <: Data](dataType      : T,
                                     address       : BigInt,
                                     bitOffset     : Int = 0,
-                                    documentation : String = null): T = {
+                                    documentation : String = null,
+                                    name          : String = null): T = {
     val reg = Reg(dataType)
-    write(reg, address, bitOffset, documentation)
-    read(reg, address, bitOffset, documentation)
+    write(reg, address, bitOffset, documentation, name)
+    read(reg, address, bitOffset, documentation, name)
     reg
   }
 
@@ -373,28 +401,37 @@ trait BusSlaveFactory extends Area{
   /**
     * Create multi-words write register of type dataType
     */
-  def createWriteMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
+  def createWriteMultiWord[T <: Data](that          : T,
+                                      address       : BigInt,
+                                      documentation : String = null,
+                                      name          : String = null): T = {
     val reg = Reg(that)
-    writeMultiWord(reg, address, documentation)
+    writeMultiWord(reg, address, documentation, name)
     reg
   }
 
   /**
     * Create multi-words read register of type dataType
     */
-  def createReadMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
+  def createReadMultiWord[T <: Data](that          : T,
+                                     address       : BigInt,
+                                     documentation : String = null,
+                                     name          : String = null): T = {
     val reg = Reg(that)
-    readMultiWord(reg, address, documentation)
+    readMultiWord(reg, address, documentation, name)
     reg
   }
 
   /**
     * Create multi-words write and read register of type dataType
     */
-  def createWriteAndReadMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
+  def createWriteAndReadMultiWord[T <: Data](that          : T,
+                                             address       : BigInt,
+                                             documentation : String = null,
+                                             name          : String = null): T = {
     val reg = Reg(that)
-    writeMultiWord(reg, address, documentation)
-    readMultiWord(reg, address, documentation)
+    writeMultiWord(reg, address, documentation, name)
+    readMultiWord(reg, address, documentation, name)
     reg
   }
 
@@ -406,9 +443,10 @@ trait BusSlaveFactory extends Area{
   def drive[T <: Data](that          : T,
                        address       : BigInt,
                        bitOffset     : Int = 0,
-                       documentation : String = null): T = {
+                       documentation : String = null,
+                       name          : String = null): T = {
     val reg = Reg(that)
-    write(reg, address, bitOffset, documentation)
+    write(reg, address, bitOffset, documentation, name)
     that := reg
     reg
   }
@@ -424,10 +462,11 @@ trait BusSlaveFactory extends Area{
   def driveAndRead[T <: Data](that          : T,
                               address       : BigInt,
                               bitOffset     : Int = 0,
-                              documentation : String = null): T = {
+                              documentation : String = null,
+                              name          : String = null): T = {
     val reg = Reg(that).setCompositeName(that, "driver", true)
-    write(reg, address, bitOffset, documentation)
-    read(reg, address, bitOffset,  documentation)
+    write(reg, address, bitOffset, documentation, name)
+    read(reg, address, bitOffset,  documentation, name)
     that := reg
     reg
   }
@@ -436,7 +475,10 @@ trait BusSlaveFactory extends Area{
   /**
     * Drive that on multi-words
     */
-  def driveMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
+  def driveMultiWord[T <: Data](that          : T,
+                                address       : BigInt,
+                                documentation : String = null,
+                                name          : String = null): T = {
     val reg = Reg(that)
     writeMultiWord(reg, address, documentation)
     that := reg
@@ -447,10 +489,13 @@ trait BusSlaveFactory extends Area{
   /**
     * Drive and read that on multi-word
     */
-  def driveAndReadMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
+  def driveAndReadMultiWord[T <: Data](that          : T,
+                                       address       : BigInt,
+                                       documentation : String = null,
+                                       name          : String = null): T = {
     val reg = Reg(that)
-    writeMultiWord(reg, address, documentation)
-    readMultiWord(reg, address, documentation)
+    writeMultiWord(reg, address, documentation, name)
+    readMultiWord(reg, address, documentation, name)
     that := reg
     reg
   }
@@ -558,7 +603,8 @@ trait BusSlaveFactory extends Area{
     onReadPrimitive(
       address       = address,
       haltSensitive = false,
-      documentation = null
+      documentation = null,
+      name          = null
     ){
       counter.increment()
       when(!counter.willOverflowIfInc){
@@ -577,7 +623,7 @@ trait BusSlaveFactory extends Area{
     val memAddress = readAddress(mapping) >> log2Up(busDataWidth/8)
     val readData = mem.readSync(memAddress)
     multiCycleRead(mapping,2)
-    readPrimitive(readData, mapping, bitOffset, null)
+    readPrimitive(readData, mapping, bitOffset, null, null)
     mem
   }
 
@@ -590,7 +636,7 @@ trait BusSlaveFactory extends Area{
 
     port.address := memAddress
     port.valid := False
-    onWritePrimitive(mapping,true, null){
+    onWritePrimitive(mapping,true, null, null){
       port.valid := True
     }
     nonStopWrite(port.data, bitOffset)
@@ -614,7 +660,8 @@ trait BusSlaveFactoryElement{
 case class BusSlaveFactoryRead(that          : Data,
                                address       : AddressMapping,
                                bitOffset     : Int,
-                               documentation : String) extends BusSlaveFactoryElement{
+                               documentation : String,
+                               name          : String) extends BusSlaveFactoryElement{
   def mapping: AddressMapping = address
 }
 
@@ -626,7 +673,8 @@ case class BusSlaveFactoryRead(that          : Data,
 case class BusSlaveFactoryWrite(that          : Data,
                                 address       : AddressMapping,
                                 bitOffset     : Int,
-                                documentation : String) extends BusSlaveFactoryElement{
+                                documentation : String,
+                                name          : String) extends BusSlaveFactoryElement{
   def mapping: AddressMapping = address
 }
 
@@ -635,6 +683,7 @@ case class BusSlaveFactoryWrite(that          : Data,
 case class BusSlaveFactoryOnWriteAtAddress(address       : AddressMapping,
                                            haltSensitive : Boolean,
                                            documentation : String,
+                                           name          : String,
                                            doThat        : () => Unit) extends BusSlaveFactoryElement{
   def mapping: AddressMapping = address
 }
@@ -644,6 +693,7 @@ case class BusSlaveFactoryOnWriteAtAddress(address       : AddressMapping,
 case class BusSlaveFactoryOnReadAtAddress(address       : AddressMapping,
                                           haltSensitive : Boolean,
                                           documentation : String,
+                                          name          : String,
                                           doThat        : () => Unit) extends BusSlaveFactoryElement{
   def mapping: AddressMapping = address
 }
@@ -656,7 +706,8 @@ case class BusSlaveFactoryOnReadAtAddress(address       : AddressMapping,
   */
 case class BusSlaveFactoryNonStopWrite(that          : Data,
                                        bitOffset     : Int,
-                                       documentation : String) extends BusSlaveFactoryElement{
+                                       documentation : String,
+                                       name          : String) extends BusSlaveFactoryElement{
   def mapping: AddressMapping = null
 }
 
@@ -712,7 +763,8 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
   override def readPrimitive[T <: Data](that          : T,
                                         address       : AddressMapping,
                                         bitOffset     : Int,
-                                        documentation : String): Unit = {
+                                        documentation : String,
+                                        name          : String): Unit = {
 
     assert(bitOffset + that.getBitsWidth <= busDataWidth, "BusSlaveFactory ERROR [readPrimitive] : bitOffset + width of the parameter that is bigger than the data bus width")
 
@@ -720,14 +772,16 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
       that          = that,
       address       = address,
       bitOffset     = bitOffset,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     ))
   }
 
   override def writePrimitive[T <: Data](that          : T,
                                          address       : AddressMapping,
                                          bitOffset     : Int,
-                                         documentation : String): Unit = {
+                                         documentation : String,
+                                         name          : String): Unit = {
 
     assert(bitOffset + that.getBitsWidth <= busDataWidth, "BusSlaveFactory ERROR [writePrimitive] : bitOffset + width of the parameter that is bigger than the data bus width")
 
@@ -735,17 +789,20 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
       that          = that,
       address       = address,
       bitOffset     = bitOffset,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     ))
   }
 
   override def onWritePrimitive(address       : AddressMapping,
                                 haltSensitive : Boolean,
-                                documentation : String)(doThat: => Unit): Unit = {
+                                documentation : String,
+                                name          : String)(doThat: => Unit): Unit = {
     addElement(BusSlaveFactoryOnWriteAtAddress(
       address       = address,
       haltSensitive = haltSensitive,
       documentation = documentation,
+      name          = name,
       doThat        = () => doThat
     ))
   }
@@ -753,11 +810,13 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
 
   def onReadPrimitive(address       : AddressMapping,
                       haltSensitive : Boolean,
-                      documentation : String)(doThat: => Unit): Unit = {
+                      documentation : String,
+                      name          : String)(doThat: => Unit): Unit = {
     addElement(BusSlaveFactoryOnReadAtAddress(
       address       = address,
       haltSensitive = haltSensitive,
       documentation = documentation,
+      name          = name,
       doThat        = () => doThat
     ))
   }
@@ -768,11 +827,13 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
     */
   def nonStopWrite[T <: Data](that          : T,
                               bitOffset     : Int = 0,
-                              documentation : String = null): T = {
+                              documentation : String = null,
+                              name          : String = null): T = {
     addElement(BusSlaveFactoryNonStopWrite(
       that          = that,
       bitOffset     = bitOffset,
-      documentation = documentation
+      documentation = documentation,
+      name          = name
     ))
     that
   }
@@ -790,8 +851,8 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
     for ((address, tasks) <- elementsPerAddress.toList.sortBy(_._1.lowerBound)) {
       builder ++= s"$address :\n"
       for (task <- tasks) task match {
-        case task: BusSlaveFactoryRead  => builder ++= s"  R[${task.bitOffset + widthOf(task.that) - 1}:${task.bitOffset}] ${task.that.getName()} ${if(task.documentation != null) s"- ${task.documentation}" else ""} \n"
-        case task: BusSlaveFactoryWrite => builder ++= s"  W[${task.bitOffset + widthOf(task.that) - 1}:${task.bitOffset}] ${task.that.getName()} ${if(task.documentation != null) s"- ${task.documentation}" else ""} \n"
+        case task: BusSlaveFactoryRead  => builder ++= s" ${task.name} R[${task.bitOffset + widthOf(task.that) - 1}:${task.bitOffset}] ${task.that.getName()} ${if(task.documentation != null) s"- ${task.documentation}" else ""} \n"
+        case task: BusSlaveFactoryWrite => builder ++= s" ${task.name} W[${task.bitOffset + widthOf(task.that) - 1}:${task.bitOffset}] ${task.that.getName()} ${if(task.documentation != null) s"- ${task.documentation}" else ""} \n"
         case _ =>
       }
     }
@@ -870,7 +931,7 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
 
 class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) extends BusSlaveFactory {
   override def busDataWidth: Int = f.busDataWidth
-  override def nonStopWrite[T <: Data](that: T, bitOffset: Int, documentation: String): T = f.nonStopWrite(that, bitOffset, documentation)
+  override def nonStopWrite[T <: Data](that: T, bitOffset: Int, documentation: String, name: String): T = f.nonStopWrite(that, bitOffset, documentation, name)
   override def wordAddressInc: Int = f.wordAddressInc
   override def getConfig = f.getConfig
   override def setConfig(value : BusSlaveFactoryConfig): this.type = {
@@ -878,10 +939,10 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
     this
   }
 
-  override def readPrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.readPrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation)
-  override def writePrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.writePrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation)
-  override def onWritePrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onWritePrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
-  override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
+  override def readPrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String, name: String): Unit = f.readPrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation, name)
+  override def writePrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String, name: String): Unit = f.writePrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation, name)
+  override def onWritePrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String, name: String)(doThat: => Unit): Unit = f.onWritePrimitive(address.applyOffset(addressOffset), haltSensitive, documentation, name)(doThat)
+  override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String, name: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.applyOffset(addressOffset), haltSensitive, documentation, name)(doThat)
   override def readHalt(): Unit = f.readHalt()
   override def writeHalt(): Unit = f.writeHalt()
   override def readAddress(): UInt = f.readAddress()  - addressOffset
